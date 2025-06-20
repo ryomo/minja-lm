@@ -1,13 +1,18 @@
-import os
-
+import json
 import torch
 import torch.nn as nn
-from transformers import AutoTokenizer
 
-# Configuration
-model_path = "minja_lm.pth"
-device = "cuda" if torch.cuda.is_available() else "cpu"
-block_size = 16
+
+class SimpleConfig:
+    def __init__(self, config_path=None):
+        if not config_path:
+            config_path = "config.json"
+
+        with open(config_path, "r") as f:
+            config_dict = json.load(f)
+
+        for key, value in config_dict.items():
+            setattr(self, key, value)
 
 
 class Model(nn.Module):
@@ -41,35 +46,52 @@ class Model(nn.Module):
         return logits
 
 
-def generate(model, tokenizer, prompt, max_new_tokens=20, temperature=0.7):
+class MinjaLMForCausalLM(Model):
     """
-    Generate text using the model and tokenizer with temperature sampling.
-    Args:
-        model: Trained language model
-        tokenizer: Corresponding tokenizer
-        prompt: Initial text to start generation
-        max_new_tokens: Maximum number of tokens to generate
-        temperature: Controls randomness (higher = more random, lower = more deterministic)
-    Returns:
-        Generated text as a string
+    CausalLM wrapper compatible with HuggingFace Transformers.
     """
-    model.eval()
-    idx = tokenizer.encode(prompt, return_tensors="pt").to(device)
-    for _ in range(max_new_tokens):
-        logits = model(idx[:, -block_size:])  # Get logits for next token
-        logits = logits[:, -1, :] / temperature  # Apply temperature scaling
-        probs = torch.softmax(logits, dim=-1)  # Convert to probability distribution
-        next_id = torch.multinomial(probs, num_samples=1)  # Sample next token
-        idx = torch.cat([idx, next_id], dim=1)  # Append to sequence
-        if next_id.item() == tokenizer.eos_token_id:
-            break  # Stop if end-of-sequence token is generated
-    return tokenizer.decode(idx[0].tolist(), skip_special_tokens=True)  # Convert to text
 
+    def __init__(self, config):
+        vocab_size = config.vocab_size if hasattr(config, "vocab_size") else config["vocab_size"]
+        n_embd = getattr(config, "n_embd", 128)
+        n_layer = getattr(config, "n_layer", 2)
+        n_head = getattr(config, "n_head", 2)
+        block_size = getattr(config, "block_size", 16)
+        super().__init__(vocab_size, n_embd, n_layer, n_head, block_size)
+        self.config = config
+        self.block_size = block_size
 
-# Japanese GPT-2 tokenizer setup
-os.environ["TOKENIZERS_PARALLELISM"] = "false"  # Suppress parallelism warnings
-# Load pre-trained Japanese GPT-2 tokenizer
-# Set pad_token to eos_token for compatibility
-# (rinna/japanese-gpt2-medium is a Japanese language model)
-tokenizer = AutoTokenizer.from_pretrained("rinna/japanese-gpt2-medium", legacy=False)
-tokenizer.pad_token = tokenizer.eos_token
+    @classmethod
+    def from_pretrained(cls, model_path, *args, config=None, **kwargs):
+        import torch
+
+        if config is None:
+            from transformers import AutoConfig
+
+            config = AutoConfig.from_pretrained(model_path)
+        model = cls(config)
+        state_dict = torch.load(f"{model_path}/minja_lm.pth", map_location="cpu")
+        model.load_state_dict(state_dict)
+        return model
+
+    def forward(self, input_ids, **kwargs):
+        return super().forward(input_ids)
+
+    def generate(self, tokenizer, prompt, max_new_tokens=20, temperature=0.7, device="cpu"):
+        """
+        Generate text using the model and tokenizer with temperature sampling.
+        """
+        self.eval()
+        self.to(device)
+        idx = tokenizer.encode(prompt, return_tensors="pt").to(device)
+
+        with torch.no_grad():
+            for _ in range(max_new_tokens):
+                logits = self(idx[:, -self.block_size:])
+                logits = logits[:, -1, :] / temperature
+                probs = torch.softmax(logits, dim=-1)
+                next_id = torch.multinomial(probs, num_samples=1)
+                idx = torch.cat([idx, next_id], dim=1)
+                if next_id.item() == tokenizer.eos_token_id:
+                    break
+        return tokenizer.decode(idx[0].tolist(), skip_special_tokens=True)

@@ -5,15 +5,9 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from datasets import load_dataset
-from model import Model, block_size, device, generate, model_path, tokenizer
+from transformers import AutoTokenizer
+from model import MinjaLMForCausalLM, Model, SimpleConfig
 from torch.utils.data import DataLoader
-
-# Set working directory to the script's location
-current_dir = Path(__file__).parent
-os.chdir(current_dir)
-
-# Load dataset from CSV file (expects a 'text' column)
-dataset = load_dataset("csv", data_files="dataset.csv")
 
 
 class CustomDataset(torch.utils.data.Dataset):
@@ -31,6 +25,28 @@ class CustomDataset(torch.utils.data.Dataset):
 
 
 if __name__ == "__main__":
+    # Set working directory to the script's location
+    current_dir = Path(__file__).parent
+    os.chdir(current_dir)
+
+    # Configuration
+    config = SimpleConfig()
+    model_file = "minja_lm.pth"
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    # Load dataset from CSV file (expects a 'text' column)
+    dataset = load_dataset("csv", data_files="dataset.csv")
+
+    # Japanese GPT-2 tokenizer setup
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"  # Suppress parallelism warnings
+    tokenizer = AutoTokenizer.from_pretrained("rinna/japanese-gpt2-medium", legacy=False)
+    tokenizer.pad_token = tokenizer.eos_token
+
+    # Check if the config vocab size matches the tokenizer's vocab size
+    if config.vocab_size != len(tokenizer):
+        raise ValueError(
+            f"Vocab size mismatch: config.vocab_size={config.vocab_size}, tokenizer.vocab_size={len(tokenizer)}"
+        )
 
     # Convert text to token ID sequences
     def tokenize_function(example):
@@ -44,6 +60,7 @@ if __name__ == "__main__":
     # Create input and label sequences in blocks of block_size
     inputs = []
     labels = []
+    block_size = config.block_size
     for i in range(0, len(all_ids) - block_size, block_size):
         x = all_ids[i : i + block_size]
         y = all_ids[i + 1 : i + block_size + 1]
@@ -56,7 +73,13 @@ if __name__ == "__main__":
     dataloader = DataLoader(ds, batch_size=4, shuffle=True, num_workers=8)
 
     # Prepare model, optimizer, and loss function
-    model = Model(vocab_size=len(tokenizer), block_size=block_size).to(device)
+    model = Model(
+        vocab_size=config.vocab_size,
+        n_embd=config.n_embd,
+        n_layer=config.n_layer,
+        n_head=config.n_head,
+        block_size=config.block_size
+    ).to(device)
     optimizer = optim.AdamW(model.parameters(), lr=0.0001, weight_decay=0.01)
     loss_fn = nn.CrossEntropyLoss()
 
@@ -75,13 +98,9 @@ if __name__ == "__main__":
         print(f"epoch {epoch+1}, loss: {total_loss/len(dataloader):.4f}")
 
     # Save the trained model
-    torch.save(model.state_dict(), model_path)
-    print(f"Model saved: {model_path}")
+    torch.save(model.state_dict(), model_file)
+    print(f"Model saved: {model_file}")
 
     # Load the saved model and run inference
-    loaded_model = Model(len(tokenizer), block_size=block_size).to(device)
-    loaded_model.load_state_dict(torch.load(model_path, map_location=device))
-    loaded_model.eval()
-
-    # Example: Generate text using the loaded model
-    print(generate(loaded_model, tokenizer, "お気に入りの音楽を", 20))
+    minja_model = MinjaLMForCausalLM(config)
+    print(minja_model.generate(tokenizer, "お気に入りの音楽を", 20, device=device))

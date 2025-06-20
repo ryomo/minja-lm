@@ -1,0 +1,9 @@
+{
+  "architectures": ["MinjaLMForCausalLM"],
+  "model_type": "minja-lm",
+  "vocab_size": 32000,
+  "n_embd": 128,
+  "n_layer": 2,
+  "n_head": 2,
+  "block_size": 16
+}
