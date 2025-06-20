@@ -4,19 +4,19 @@ import torch
 import torch.nn as nn
 from transformers import AutoTokenizer
 
-# 設定
+# Configuration
 model_path = "minja_lm.pth"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 block_size = 16
 
 
 class Model(nn.Module):
-    """最小構成のGPT風Transformerデコーダモデル"""
+    """Minimal GPT-style Transformer decoder model."""
 
     def __init__(self, vocab_size, n_embd=128, n_layer=2, n_head=2, block_size=16):
         super().__init__()
-        self.tok_emb = nn.Embedding(vocab_size, n_embd)
-        self.pos_emb = nn.Parameter(torch.zeros(1, block_size, n_embd))
+        self.tok_emb = nn.Embedding(vocab_size, n_embd)  # Token embedding
+        self.pos_emb = nn.Parameter(torch.zeros(1, block_size, n_embd))  # Positional embedding
         self.drop = nn.Dropout(0.1)
         self.blocks = nn.ModuleList(
             [
@@ -27,7 +27,7 @@ class Model(nn.Module):
             ]
         )
         self.ln_f = nn.LayerNorm(n_embd)
-        self.head = nn.Linear(n_embd, vocab_size, bias=False)
+        self.head = nn.Linear(n_embd, vocab_size, bias=False)  # Output projection
 
     def forward(self, idx):
         # idx: (batch, seq_len)
@@ -43,28 +43,33 @@ class Model(nn.Module):
 
 def generate(model, tokenizer, prompt, max_new_tokens=20, temperature=0.7):
     """
-    モデルとトークナイザーを使ってテキストを自動生成する関数。
-    temperature付きサンプリングによりランダム性を持たせる。
-    - model: 学習済みモデル
-    - tokenizer: 対応するトークナイザー
-    - prompt: 生成のきっかけとなるテキスト
-    - max_new_tokens: 生成する最大トークン数
-    - temperature: サンプリングの多様性（大きいほど多様、小さいほど確定的）
+    Generate text using the model and tokenizer with temperature sampling.
+    Args:
+        model: Trained language model
+        tokenizer: Corresponding tokenizer
+        prompt: Initial text to start generation
+        max_new_tokens: Maximum number of tokens to generate
+        temperature: Controls randomness (higher = more random, lower = more deterministic)
+    Returns:
+        Generated text as a string
     """
     model.eval()
     idx = tokenizer.encode(prompt, return_tensors="pt").to(device)
     for _ in range(max_new_tokens):
-        logits = model(idx[:, -block_size:])  # 次トークンのロジット取得
-        logits = logits[:, -1, :] / temperature  # temperatureでスケーリング
-        probs = torch.softmax(logits, dim=-1)  # 確率分布に変換
-        next_id = torch.multinomial(probs, num_samples=1)  # サンプリング
-        idx = torch.cat([idx, next_id], dim=1)  # 生成文に追加
+        logits = model(idx[:, -block_size:])  # Get logits for next token
+        logits = logits[:, -1, :] / temperature  # Apply temperature scaling
+        probs = torch.softmax(logits, dim=-1)  # Convert to probability distribution
+        next_id = torch.multinomial(probs, num_samples=1)  # Sample next token
+        idx = torch.cat([idx, next_id], dim=1)  # Append to sequence
         if next_id.item() == tokenizer.eos_token_id:
-            break  # 終端トークンなら終了
-    return tokenizer.decode(idx[0].tolist(), skip_special_tokens=True)  # テキスト化
+            break  # Stop if end-of-sequence token is generated
+    return tokenizer.decode(idx[0].tolist(), skip_special_tokens=True)  # Convert to text
 
 
-# 日本語対応トークナイザー
-os.environ["TOKENIZERS_PARALLELISM"] = "false"  # 警告対策
+# Japanese GPT-2 tokenizer setup
+os.environ["TOKENIZERS_PARALLELISM"] = "false"  # Suppress parallelism warnings
+# Load pre-trained Japanese GPT-2 tokenizer
+# Set pad_token to eos_token for compatibility
+# (rinna/japanese-gpt2-medium is a Japanese language model)
 tokenizer = AutoTokenizer.from_pretrained("rinna/japanese-gpt2-medium", legacy=False)
 tokenizer.pad_token = tokenizer.eos_token

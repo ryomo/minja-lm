@@ -8,16 +8,16 @@ from datasets import load_dataset
 from model import Model, block_size, device, generate, model_path, tokenizer
 from torch.utils.data import DataLoader
 
-# ワーキングディレクトリの設定
+# Set working directory to the script's location
 current_dir = Path(__file__).parent
 os.chdir(current_dir)
 
-# データセットの読み込み（CSVファイル）
-dataset = load_dataset("csv", data_files="dataset.csv")  # 'text'カラムを想定
+# Load dataset from CSV file (expects a 'text' column)
+dataset = load_dataset("csv", data_files="dataset.csv")
 
 
 class CustomDataset(torch.utils.data.Dataset):
-    """入力とラベルのペアを保持するDatasetクラス"""
+    """Dataset class holding pairs of input and label sequences."""
 
     def __init__(self, inputs, labels):
         self.inputs = inputs
@@ -32,16 +32,16 @@ class CustomDataset(torch.utils.data.Dataset):
 
 if __name__ == "__main__":
 
-    # テキストをトークンID列に変換
+    # Convert text to token ID sequences
     def tokenize_function(example):
         ids = tokenizer.encode(example["text"])
         return {"ids": ids}
 
-    # データセット全体をトークナイズ
+    # Tokenize the entire dataset
     tokenized = dataset["train"].map(tokenize_function)
-    all_ids = sum(tokenized["ids"], [])  # 全トークンIDを連結
+    all_ids = sum(tokenized["ids"], [])  # Concatenate all token IDs
 
-    # block_sizeごとに入力とラベルを作成
+    # Create input and label sequences in blocks of block_size
     inputs = []
     labels = []
     for i in range(0, len(all_ids) - block_size, block_size):
@@ -51,16 +51,16 @@ if __name__ == "__main__":
             inputs.append(x)
             labels.append(y)
 
-    # PyTorch Dataset/DataLoaderの作成
+    # Create PyTorch Dataset and DataLoader
     ds = CustomDataset(inputs, labels)
     dataloader = DataLoader(ds, batch_size=4, shuffle=True, num_workers=8)
 
-    # モデル・最適化手法・損失関数の準備
+    # Prepare model, optimizer, and loss function
     model = Model(vocab_size=len(tokenizer), block_size=block_size).to(device)
     optimizer = optim.AdamW(model.parameters(), lr=0.0001, weight_decay=0.01)
     loss_fn = nn.CrossEntropyLoss()
 
-    # 学習ループ
+    # Training loop
     for epoch in range(20):
         model.train()
         total_loss = 0
@@ -74,14 +74,14 @@ if __name__ == "__main__":
             total_loss += loss.item()
         print(f"epoch {epoch+1}, loss: {total_loss/len(dataloader):.4f}")
 
-    # 学習済みモデルの保存
+    # Save the trained model
     torch.save(model.state_dict(), model_path)
-    print(f"モデルを保存しました: {model_path}")
+    print(f"Model saved: {model_path}")
 
-    # 保存したモデルをロードして推論
+    # Load the saved model and run inference
     loaded_model = Model(len(tokenizer), block_size=block_size).to(device)
     loaded_model.load_state_dict(torch.load(model_path, map_location=device))
     loaded_model.eval()
 
-    # テスト生成例（ロードしたモデルで）
+    # Example: Generate text using the loaded model
     print(generate(loaded_model, tokenizer, "お気に入りの音楽を", 20))
