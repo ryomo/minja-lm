@@ -11,3 +11,6 @@ wheels/
 
 # ML model files
 *.pth
+
+# misc
+MEMO.md
