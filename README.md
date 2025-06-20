@@ -4,6 +4,6 @@
 
 ```sh
 uv sync --frozen
-uv run minja_lm/training.py
-uv run minja_lm/inference.py
+uv run scripts/training.py
+uv run scripts/inference.py
 ```

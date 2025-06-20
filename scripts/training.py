@@ -5,10 +5,15 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from datasets import load_dataset
-from transformers import AutoTokenizer
-from model import MinjaLMForCausalLM, Model, SimpleConfig
 from torch.utils.data import DataLoader
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
+from minja_lm.modeling import MinjaLM, MinjaLMConfig
+
+
+PROJECT_ROOT = Path(__file__).parents[1]
+model_dir = str(PROJECT_ROOT / "src" / "minja_lm")
+dataset_path = str(PROJECT_ROOT / "dataset" / "dataset.csv")
 
 class CustomDataset(torch.utils.data.Dataset):
     """Dataset class holding pairs of input and label sequences."""
@@ -30,12 +35,13 @@ if __name__ == "__main__":
     os.chdir(current_dir)
 
     # Configuration
-    config = SimpleConfig()
-    model_file = "minja_lm.pth"
+    config = MinjaLMConfig()
+    # config.save_pretrained(save_dir)  # Save config.json
+
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     # Load dataset from CSV file (expects a 'text' column)
-    dataset = load_dataset("csv", data_files="dataset.csv")
+    dataset = load_dataset("csv", data_files=dataset_path)
 
     # Japanese GPT-2 tokenizer setup
     os.environ["TOKENIZERS_PARALLELISM"] = "false"  # Suppress parallelism warnings
@@ -73,13 +79,7 @@ if __name__ == "__main__":
     dataloader = DataLoader(ds, batch_size=4, shuffle=True, num_workers=8)
 
     # Prepare model, optimizer, and loss function
-    model = Model(
-        vocab_size=config.vocab_size,
-        n_embd=config.n_embd,
-        n_layer=config.n_layer,
-        n_head=config.n_head,
-        block_size=config.block_size
-    ).to(device)
+    model = MinjaLM(config).to(device)
     optimizer = optim.AdamW(model.parameters(), lr=0.0001, weight_decay=0.01)
     loss_fn = nn.CrossEntropyLoss()
 
@@ -98,9 +98,9 @@ if __name__ == "__main__":
         print(f"epoch {epoch+1}, loss: {total_loss/len(dataloader):.4f}")
 
     # Save the trained model
-    torch.save(model.state_dict(), model_file)
-    print(f"Model saved: {model_file}")
+    model.save_pretrained(model_dir)  # Save config.json and model weights
+    print("Model saved")
 
     # Load the saved model and run inference
-    minja_model = MinjaLMForCausalLM(config)
-    print(minja_model.generate(tokenizer, "お気に入りの音楽を", 20, device=device))
+    model = AutoModelForCausalLM.from_pretrained(model_dir)
+    print(model.generate(tokenizer, "お気に入りの音楽を", 20, device=device))
