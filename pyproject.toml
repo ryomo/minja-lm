@@ -1,7 +1,16 @@
 [project]
 name = "minja-lm"
 version = "0.1.0"
-description = "Add your description here"
+description = "A minimal Japanese language model"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "datasets>=3.6.0",
+    "protobuf>=6.31.1",
+    "sentencepiece>=0.2.0",
+    "torch>=2.7.1",
+    "transformers>=4.52.4",
+]
+# "rinna/japanese-gpt2-medium" tokenizer dependencies:
+# - sentencepiece
+# - protobuf
