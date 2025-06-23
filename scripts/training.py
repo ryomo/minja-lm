@@ -12,7 +12,7 @@ from minja_lm.modeling import MinjaLM, MinjaLMConfig
 
 
 PROJECT_ROOT = Path(__file__).parents[1]
-MODEL_DIR = str(PROJECT_ROOT / "src" / "minja_lm")
+MODEL_DIR = str(PROJECT_ROOT / "model")
 DATASET_PATH = str(PROJECT_ROOT / "dataset" / "dataset.csv")
 
 class CustomDataset(torch.utils.data.Dataset):

@@ -8,7 +8,7 @@ import minja_lm  # noqa: F401  # Import to register MinjaLM
 
 
 PROJECT_ROOT = Path(__file__).parents[1]
-MODEL_DIR = str(PROJECT_ROOT / "src" / "minja_lm")
+MODEL_DIR = str(PROJECT_ROOT / "model")
 
 if __name__ == "__main__":
     # Set working directory to the script's location

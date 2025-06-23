@@ -16,10 +16,10 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 # Import to register the model
 import minja_lm  # noqa: F401
 
+
 REPO_NAME = "ryomo/minja-lm"
 PROJECT_ROOT = Path(__file__).parents[1]
-MODEL_DIR = str(PROJECT_ROOT / "src" / "minja_lm")
-
+MODEL_DIR = str(PROJECT_ROOT / "model")
 
 def upload_model_card(_repo_name):
     """Upload the model card to Hugging Face Hub."""
