@@ -24,5 +24,6 @@ if __name__ == "__main__":
     tokenizer.pad_token = tokenizer.eos_token
 
     # Load the saved model and run inference
+    # NOTE: `trust_remote_code=True` is not needed here since this project uses a local model
     model = AutoModelForCausalLM.from_pretrained(model_dir)
     print(model.generate(tokenizer, "お気に入りの音楽を", 20, device=device))
