@@ -44,21 +44,50 @@ class MinjaLM(PreTrainedModel):
         logits = self.head(x)
         return logits
 
-    def generate(self, tokenizer, prompt, max_new_tokens=20, temperature=0.7, device="cpu"):
+    def generate(self, input_ids, max_new_tokens=20, temperature=0.7, eos_token_id=None, pad_token_id=None, do_sample=True):
         """
-        Generate text using the model and tokenizer with temperature sampling.
+        Generate tokens using the model with temperature sampling.
+
+        Args:
+            input_ids (torch.Tensor): Input token IDs of shape (batch_size, seq_len)
+            max_new_tokens (int): Maximum number of new tokens to generate
+            temperature (float): Temperature for sampling (higher = more random)
+            eos_token_id (int, optional): Token ID to stop generation
+            pad_token_id (int, optional): Padding token ID (unused for now)
+            do_sample (bool): Whether to use sampling (True) or greedy decoding (False)
+
+        Returns:
+            torch.Tensor: Generated token IDs of shape (batch_size, original_seq_len + generated_tokens)
         """
         self.eval()
+        device = input_ids.device
         self.to(device)
-        idx = tokenizer.encode(prompt, return_tensors="pt").to(device)
+
+        # Ensure input_ids has the right shape
+        if input_ids.dim() == 1:
+            input_ids = input_ids.unsqueeze(0)
+
+        idx = input_ids.clone()
 
         with torch.no_grad():
             for _ in range(max_new_tokens):
-                logits = self(idx[:, -self.config.block_size:])
-                logits = logits[:, -1, :] / temperature
-                probs = torch.softmax(logits, dim=-1)
-                next_id = torch.multinomial(probs, num_samples=1)
+                # Crop to the last block_size tokens if sequence is too long
+                idx_cond = idx[:, -self.config.block_size:] if idx.size(1) > self.config.block_size else idx
+                logits = self(idx_cond)
+                logits = logits[:, -1, :]  # Get the last token's logits
+
+                if do_sample:
+                    logits = logits / temperature
+                    probs = torch.softmax(logits, dim=-1)
+                    next_id = torch.multinomial(probs, num_samples=1)
+                else:
+                    # Greedy decoding
+                    next_id = torch.argmax(logits, dim=-1, keepdim=True)
+
                 idx = torch.cat([idx, next_id], dim=1)
-                if next_id.item() == tokenizer.eos_token_id:
+
+                # Stop if we hit the end-of-sequence token
+                if eos_token_id is not None and next_id.item() == eos_token_id:
                     break
-        return tokenizer.decode(idx[0].tolist(), skip_special_tokens=True)
+
+        return idx

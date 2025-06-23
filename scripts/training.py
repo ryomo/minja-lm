@@ -103,4 +103,21 @@ if __name__ == "__main__":
 
     # Load the saved model and run inference
     model = AutoModelForCausalLM.from_pretrained(MODEL_DIR)
-    print(model.generate(tokenizer, "お気に入りの音楽を", 20, device=device))
+    model.to(device)
+
+    # Prepare input
+    prompt = "お気に入りの音楽を"
+    input_ids = tokenizer.encode(prompt, return_tensors="pt").to(device)
+
+    # Generate tokens
+    generated_ids = model.generate(
+        input_ids=input_ids,
+        max_new_tokens=20,
+        temperature=0.7,
+        eos_token_id=tokenizer.eos_token_id,
+        do_sample=True
+    )
+
+    # Decode and print the result
+    generated_text = tokenizer.decode(generated_ids[0], skip_special_tokens=True)
+    print(generated_text)
