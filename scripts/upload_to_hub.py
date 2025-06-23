@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Upload the trained MinjaLM model to Hugging Face Hub.
 
