@@ -12,8 +12,8 @@ from minja_lm.modeling import MinjaLM, MinjaLMConfig
 
 
 PROJECT_ROOT = Path(__file__).parents[1]
-model_dir = str(PROJECT_ROOT / "src" / "minja_lm")
-dataset_path = str(PROJECT_ROOT / "dataset" / "dataset.csv")
+MODEL_DIR = str(PROJECT_ROOT / "src" / "minja_lm")
+DATASET_PATH = str(PROJECT_ROOT / "dataset" / "dataset.csv")
 
 class CustomDataset(torch.utils.data.Dataset):
     """Dataset class holding pairs of input and label sequences."""
@@ -41,7 +41,7 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     # Load dataset from CSV file (expects a 'text' column)
-    dataset = load_dataset("csv", data_files=dataset_path)
+    dataset = load_dataset("csv", data_files=DATASET_PATH)
 
     # Japanese GPT-2 tokenizer setup
     os.environ["TOKENIZERS_PARALLELISM"] = "false"  # Suppress parallelism warnings
@@ -98,9 +98,9 @@ if __name__ == "__main__":
         print(f"epoch {epoch+1}, loss: {total_loss/len(dataloader):.4f}")
 
     # Save the trained model
-    model.save_pretrained(model_dir)  # Save config.json and model weights
+    model.save_pretrained(MODEL_DIR)  # Save config.json and model weights
     print("Model saved")
 
     # Load the saved model and run inference
-    model = AutoModelForCausalLM.from_pretrained(model_dir)
+    model = AutoModelForCausalLM.from_pretrained(MODEL_DIR)
     print(model.generate(tokenizer, "お気に入りの音楽を", 20, device=device))

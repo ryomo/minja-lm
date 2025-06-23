@@ -8,7 +8,7 @@ import minja_lm  # noqa: F401  # Import to register MinjaLM
 
 
 PROJECT_ROOT = Path(__file__).parents[1]
-model_dir = str(PROJECT_ROOT / "src" / "minja_lm")
+MODEL_DIR = str(PROJECT_ROOT / "src" / "minja_lm")
 
 if __name__ == "__main__":
     # Set working directory to the script's location
@@ -25,5 +25,5 @@ if __name__ == "__main__":
 
     # Load the saved model and run inference
     # NOTE: `trust_remote_code=True` is not needed here since this project uses a local model
-    model = AutoModelForCausalLM.from_pretrained(model_dir)
+    model = AutoModelForCausalLM.from_pretrained(MODEL_DIR)
     print(model.generate(tokenizer, "お気に入りの音楽を", 20, device=device))
