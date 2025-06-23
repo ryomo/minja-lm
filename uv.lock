@@ -351,6 +351,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "datasets" },
+    { name = "huggingface-hub" },
     { name = "protobuf" },
     { name = "sentencepiece" },
     { name = "torch" },
@@ -360,6 +361,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "datasets", specifier = ">=3.6.0" },
+    { name = "huggingface-hub", specifier = ">=0.33.0" },
     { name = "protobuf", specifier = ">=6.31.1" },
     { name = "sentencepiece", specifier = ">=0.2.0" },
     { name = "torch", specifier = ">=2.7.1" },
