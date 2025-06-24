@@ -4,7 +4,7 @@ Upload the trained MinjaLM model to Hugging Face Hub.
 Before running this script:
 1. Create an Access Token with `write` permissions on Hugging Face Hub.
 2. Login to Hugging Face: huggingface-cli login
-3. Make sure your model is trained and saved in src/minja_lm/
+3. Make sure your model is trained and saved in the `model` directory.
 """
 import os
 from pathlib import Path
